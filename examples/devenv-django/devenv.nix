@@ -22,17 +22,10 @@ in
     STATIC_ROOT = "/tmp/static";
   };
 
-  enterShell = ''
-    # Activate poetry environment on shell entry
-    # https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
-    VIRTUAL_ENV=`poetry env info --path` && export VIRTUAL_ENV 
-    export PATH="$VIRTUAL_ENV/bin:$PATH";
-  '';
-
   services.postgres = {
     enable = true;
     initialScript = "CREATE USER ${db_user} SUPERUSER;";
-    initialDatabases = [ { name = db_name; } ];
+    initialDatabases = [{ name = db_name; }];
     listen_addresses = db_host;
   };
 
