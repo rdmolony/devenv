@@ -5,18 +5,17 @@ let
   db_host = "localhost";
   db_port = "5432";
   db_name = "db";
-  python_version = "3.10";
 in
 {
   packages = [ pkgs.git pkgs.postgresql_14 ];
 
   languages.python = {
     enable = true;
+    package = pkgs.python310;
     poetry.enable = true;
   };
 
   env = {
-    PYTHON_VERSION = python_version;
     DATABASE_URL = "postgresql://${db_user}@${db_host}:${db_port}/${db_name}";
     DEBUG = true;
     STATIC_ROOT = "/tmp/static";
