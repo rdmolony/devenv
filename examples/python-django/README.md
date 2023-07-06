@@ -25,9 +25,7 @@ Specifically,  `devenv` uses `nix` to install system level packages like `postgr
     direnv: error ~/myproject/.envrc is blocked. Run `direnv allow` to approve its content
     ```
 
-3. Create a `.env` file from `.env.example` & add your information
-
-4. Add `SECRET_KEY` as a repository secret in `GitHub` for `GitHub Actions`
+3. Fill `SECRET_KEY` in `.env` file with your `SECRET_KEY`
 
 
 ---
