@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 
 let
   db_user = "postgres";
@@ -16,7 +16,7 @@ in
   };
 
   env = {
-    DATABASE_URL = "postgresql://${db_user}@${db_host}:${db_port}/${db_name}";
+    DATABASE_URL = config.env.PGHOST;
     DEBUG = true;
     STATIC_ROOT = "/tmp/static";
   };
