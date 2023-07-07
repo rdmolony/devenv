@@ -16,7 +16,7 @@ in
   };
 
   env = {
-    DATABASE_URL = config.env.PGHOST;
+    DATABASE_URL = "postgres://${db_user}@/${db_name}?host=${config.env.PGHOST}";
     DEBUG = true;
     STATIC_ROOT = "/tmp/static";
   };

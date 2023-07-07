@@ -78,12 +78,6 @@ WSGI_APPLICATION = 'myproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-# NOTE: ignore django-environ warning on using Postgres socket to connect
-# ... without specifying a database engine
-warnings.filterwarnings(
-    "ignore", message="Engine not recognized from url:", category=UserWarning
-)
-
 # NOTE: don't store credentials in settings file
 # ... this is just a test case to myproject the issue so it's fine
 # ... in a real project, use environment variables or a secrets file
