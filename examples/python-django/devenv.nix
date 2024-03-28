@@ -18,7 +18,6 @@ in
   env = {
     DATABASE_URL = "postgres://${db_user}@/${db_name}?host=${config.env.PGHOST}";
     DEBUG = true;
-    STATIC_ROOT = "/tmp/static";
   };
 
   services.postgres = {
@@ -37,7 +36,6 @@ in
   scripts = {
     enterTest.exec = ''
       wait_for_port ${db_port}
-      python manage.py collectstatic --noinput
       python manage.py test
     '';
   };
