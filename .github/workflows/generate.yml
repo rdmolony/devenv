@@ -10,17 +10,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: cachix/install-nix-action@v18
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v26
       with:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-    - uses: cachix/cachix-action@v12
+    - uses: cachix/cachix-action@v14
       with:
         name: devenv
     - run: nix profile install .
     - name: Generate doc options
       run: devenv shell devenv-generate-doc-options
+    # https://github.com/NixOS/nixpkgs/issues/224661
+    - run: sed -i 's/\\\././g' docs/reference/options.md
     - uses: EndBug/add-and-commit@v9
       if: ${{ github.event_name == 'push' }}
       with:
@@ -29,6 +31,8 @@ jobs:
         message: 'Auto generate docs/reference/options.md'
     - name: Generate supported-languages example
       run: devenv shell devenv-generate-languages-example
+    - name: Generate docs
+      run: devenv shell devenv-generate-docs
     - uses: EndBug/add-and-commit@v9
       if: ${{ github.event_name == 'push' }}
       with:

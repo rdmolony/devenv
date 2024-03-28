@@ -1,26 +1,24 @@
-{ pkgs, config, lib, inputs, ... }:
+{ pkgs, config, lib, ... }:
 
 with lib;
 
 let
-  inherit (lib.attrsets) attrValues genAttrs;
+  inherit (lib.attrsets) attrValues;
 
   cfg = config.languages.php;
 
-  setup = ''
-    inputs:
-      phps:
-        url: github:fossar/nix-phps
-        inputs:
-          nixpkgs:
-            follows: nixpkgs
-  '';
+  phps = config.lib.getInput {
+    name = "phps";
+    url = "github:fossar/nix-phps";
+    attribute = "languages.php.version";
+    follows = [ "nixpkgs" ];
+  };
 
-  phps = inputs.phps or (throw "To use languages.php.version, you need to add the following to your devenv.yaml:\n\n${setup}");
+  filterDefaultExtensions = ext: builtins.length (builtins.filter (inner: inner == ext.extensionName) cfg.disableExtensions) == 0;
 
   configurePackage = package:
     package.buildEnv {
-      extensions = { all, enabled }: with all; enabled ++ attrValues (getAttrs cfg.extensions package.extensions);
+      extensions = { all, enabled }: with all; (builtins.filter filterDefaultExtensions (enabled ++ attrValues (getAttrs cfg.extensions package.extensions)));
       extraConfig = cfg.ini;
     };
 
@@ -43,7 +41,7 @@ let
     ${optionalString (poolOpts.extraConfig != null) poolOpts.extraConfig}
   '';
 
-  startScript = pool: poolOpts: pkgs.writeShellScriptBin "start-phpfpm" ''
+  startScript = pool: poolOpts: ''
     set -euo pipefail
 
     if [[ ! -d "$PHPFPMDIR" ]]; then
@@ -224,6 +222,14 @@ in
       '';
     };
 
+    disableExtensions = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        PHP extensions to disable.
+      '';
+    };
+
     fpm = {
       settings = mkOption {
         type = with types; attrsOf (oneOf [ str int bool ]);
@@ -297,7 +303,7 @@ in
 
   config =
     let
-      phpsPackage = phps.packages.${pkgs.system}."php${version}" or (throw "PHP version ${cfg.version} is not available");
+      phpsPackage = phps.packages.${pkgs.stdenv.system}."php${version}" or (throw "PHP version ${cfg.version} is not available");
       nixpkgsPackageExists = (builtins.tryEval (toString pkgs."php${version}")).success;
       customPhpPackage = if ((builtins.hasAttr "php${version}" pkgs) && nixpkgsPackageExists) then pkgs."php${version}" else phpsPackage;
     in
@@ -327,7 +333,7 @@ in
       processes = mapAttrs'
         (pool: poolOpts:
           nameValuePair "phpfpm-${pool}" {
-            exec = "${startScript pool poolOpts}/bin/start-phpfpm";
+            exec = startScript pool poolOpts;
           }
         )
         cfg.fpm.pools;

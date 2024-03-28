@@ -1,21 +1,29 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-22.11";
+    nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling";
+    systems.url = "github:nix-systems/default";
     devenv.url = "github:cachix/devenv";
+    devenv.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, devenv, ... } @ inputs:
+  nixConfig = {
+    extra-trusted-public-keys = "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=";
+    extra-substituters = "https://devenv.cachix.org";
+  };
+
+  outputs = { self, nixpkgs, devenv, systems, ... } @ inputs:
     let
-      systems = [ "x86_64-linux" "i686-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
-      forAllSystems = f: builtins.listToAttrs (map (name: { inherit name; value = f name; }) systems);
+      forEachSystem = nixpkgs.lib.genAttrs (import systems);
     in
     {
-      devShells = forAllSystems
+      packages = forEachSystem (system: {
+        devenv-up = self.devShells.${system}.default.config.procfileScript;
+      });
+
+      devShells = forEachSystem
         (system:
           let
-            pkgs = import nixpkgs {
-              inherit system;
-            };
+            pkgs = nixpkgs.legacyPackages.${system};
           in
           {
             default = devenv.lib.mkShell {
@@ -28,6 +36,8 @@
                   enterShell = ''
                     hello
                   '';
+
+                  processes.run.exec = "hello";
                 }
               ];
             };

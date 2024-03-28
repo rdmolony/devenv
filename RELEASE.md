@@ -1,0 +1,10 @@
+- write a blog post
+- devenv-bump-version
+- bump version in devenv/Cargo.toml
+- bump version in mkdocs.yml
+- bump version in package.nix
+- bump nixpkgs in docs/getting-started
+- git commit
+- git tag
+- git push --tags
+- create a release on github

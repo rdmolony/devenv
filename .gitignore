@@ -1,8 +1,14 @@
+# Nix & devenv
 result
+.env
+.env.*
 .devenv*
+.direnv*
 /.cache
 /.pre-commit-config.yaml
-/bin
-/include
-/lib
-pyvenv.cfg
+
+# examples
+examples/rust/app/target
+
+# Rust
+target

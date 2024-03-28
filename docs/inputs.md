@@ -8,7 +8,7 @@ If you omit `devenv.yaml`, it defaults to:
 ```yaml title="devenv.yaml"
 inputs:
   nixpkgs:
-    url: github:NixOS/nixpkgs/nixpkgs-unstable
+    url: github:cachix/devenv-nixpkgs/rolling
   pre-commit-hooks:
     url: github:cachix/pre-commit-hooks.nix
 ```
@@ -20,7 +20,7 @@ For example, if you have a `devenv.yaml` file like:
 ```yaml title="devenv.yaml"
 inputs:
   nixpkgs-stable:
-    url: github:NixOS/nixpkgs/nixos-22.11
+    url: github:NixOS/nixpkgs/nixos-23.11
 ```
 
 You can access the stable packages via the `inputs` field:
@@ -29,7 +29,7 @@ You can access the stable packages via the `inputs` field:
 { inputs, pkgs, ... }:
 
 let
-  pkgs-stable = import inputs.nixpkgs-stable { system = pkgs.system; };
+  pkgs-stable = import inputs.nixpkgs-stable { system = pkgs.stdenv.system; };
 in {
   packages = [ pkgs-stable.git ];
 

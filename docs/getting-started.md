@@ -1,15 +1,15 @@
-Here are the minimum steps to get started.
 
 ## Installation
 
 
-a) Install [Nix](https://nixos.org)
+### 1. Install [Nix](https://nixos.org)
 
 === "Linux"
 
     ```
     sh <(curl -L https://nixos.org/nix/install) --daemon
     ```
+
 === "macOS"
 
     ```
@@ -17,7 +17,7 @@ a) Install [Nix](https://nixos.org)
     ```
 
 === "Windows (WSL2)"
-   
+
     ```
     sh <(curl -L https://nixos.org/nix/install) --no-daemon
     ```
@@ -28,60 +28,41 @@ a) Install [Nix](https://nixos.org)
     docker run -it nixos/nix
     ```
 
-b) Install [Cachix](https://cachix.org) (recommended, speeds up the installation by providing binaries)
+!!! note
+
+    We recommended that you use the experimental installer on macOS to avoid issues with Apple Silicon chips:
+
+    ```
+    curl -L https://raw.githubusercontent.com/NixOS/experimental-nix-installer/main/nix-installer.sh | sh -s install
+    ```
+
+### 2. Install [devenv](https://github.com/cachix/devenv)
+
 
 === "Newcomers"
 
     ```
-    nix-env -iA cachix -f https://cachix.org/api/v1/install
-    cachix use devenv
+    nix-env -iA devenv -f https://github.com/NixOS/nixpkgs/tarball/2b8521c464b0f0c587839545b9d70b2d0b7574d0
     ```
 
-=== "Advanced (flake profiles)"
+=== "Nix profiles (requires experimental flags)"
 
     ```
-    nix profile install nixpkgs#cachix
-    cachix use devenv
+    nix profile install --accept-flake-config nixpkgs#devenv
     ```
 
-c) Install ``devenv``
-
-=== "Newcomers"
-
-    ```
-    nix-env -if https://github.com/cachix/devenv/tarball/latest
-    ```
-
-=== "Advanced (flake profiles)"
-
-    ```
-    nix profile install --accept-flake-config github:cachix/devenv/latest 
-    ```
-
-=== "Advanced (declaratively without flakes)"
+=== "NixOS/nix-darwin/home-manager"
 
     ```nix title="configuration.nix"
     environment.systemPackages = [ 
-      (import (fetchTarball https://github.com/cachix/devenv/archive/v{{ devenv.version }}.tar.gz)).default
+      pkgs.devenv
     ];
     ```
 
-=== "Advanced (declaratively with flakes)"
 
-    ```nix title="flake.nix"
-     {
-        inputs.devenv.url = "github:cachix/devenv/latest";
+!!! Updating
 
-        outputs = { devenv, ... }: {
-            packages.x86_64-linux = [devenv.packages.x86_64-linux.devenv];
-        };
-    }
-    ```
-
-
-!!! note
-
-    To update `devenv` run the installation commands to reinstall.
+    Follow the instructions for an installation above. 
 
 ## Initial set up
 
@@ -89,18 +70,17 @@ Given a Git repository, create the initial structure:
 
 ```shell-session
 $ devenv init
-Creating .envrc
-Creating devenv.nix
-Creating devenv.yaml
-Appending .devenv* to .gitignore
-Done.
+• Creating .envrc
+• Creating devenv.nix
+• Creating devenv.yaml
+• Creating .gitignore
 ```
 
 ## Commands
 
-- ``devenv ci`` builds your developer environment and makes sure that all checks pass. Useful to run in your continuous integration environment.
+- ``devenv test`` builds your developer environment and makes sure that all checks pass. Useful to run in your continuous integration environment.
 - ``devenv shell`` activates your developer environment.
-- ``devenv search NAME`` searches packages matching NAME in Nixpkgs input.
+- ``devenv search <NAME>`` searches packages matching NAME in Nixpkgs input.
 - ``devenv update`` updates and pins inputs from ``devenv.yaml`` into ``devenv.lock``.
 - ``devenv gc`` [deletes unused environments](garbage-collection.md) to save disk space.
 - ``devenv up`` starts [processes](processes.md).

@@ -1,15 +1,14 @@
-{ pkgs, config, lib, inputs, ... }:
+{ pkgs, config, lib, ... }:
 
 let
   cfg = config.languages.ruby;
 
-  nixpkgs-ruby = inputs.nixpkgs-ruby or (throw ''
-    To use languages.ruby.version or languages.ruby.versionFile, you need to add the following to your devenv.yaml:
-    
-      inputs:
-        nixpkgs-ruby:
-          url: github:bobvanderlinden/nixpkgs-ruby
-  '');
+  nixpkgs-ruby = config.lib.getInput {
+    name = "nixpkgs-ruby";
+    url = "github:bobvanderlinden/nixpkgs-ruby";
+    attribute = "languages.ruby.version or languages.ruby.versionFile";
+    follows = [ "nixpkgs" ];
+  };
 in
 {
   options.languages.ruby = {
@@ -48,21 +47,43 @@ in
         ./ruby-version
       '';
     };
+
+    bundler = {
+      enable = lib.mkEnableOption "bundler";
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.bundler.override { ruby = cfg.package; };
+        defaultText = lib.literalExpression "pkgs.bundler.override { ruby = cfg.package; }";
+        description = "The bundler package to use.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.version == null || cfg.versionFile == null;
+        message = ''
+          `languages.ruby.version` and `languages.ruby.versionFile` are both set.
+          Only one of the two may be set. Remove one of the two options.
+        '';
+      }
+    ];
+
     # enable C tooling by default so native extensions can be built
     languages.c.enable = lib.mkDefault true;
+
+    languages.ruby.bundler.enable = lib.mkDefault true;
 
     languages.ruby.package =
       let
         packageFromVersion = lib.mkIf (cfg.version != null) (
-          nixpkgs-ruby.packages.${pkgs.system}."ruby-${cfg.version}"
+          nixpkgs-ruby.packages.${pkgs.stdenv.system}."ruby-${cfg.version}"
         );
         packageFromVersionFile = lib.mkIf (cfg.versionFile != null) (
           nixpkgs-ruby.lib.packageFromRubyVersionFile {
             file = cfg.versionFile;
-            system = pkgs.system;
+            system = pkgs.stdenv.system;
           }
         );
       in
@@ -71,9 +92,8 @@ in
         packageFromVersionFile
       ];
 
-    packages = with pkgs; [
+    packages = lib.optional cfg.bundler.enable cfg.bundler.package ++ [
       cfg.package
-      bundler
     ];
 
     env.BUNDLE_PATH = config.env.DEVENV_STATE + "/.bundle";
@@ -84,8 +104,8 @@ in
       let libdir = cfg.package.version.libDir;
       in
       ''
-        export RUBYLIB="$DEVENV_PROFILE/${libdir}:$DEVENV_PROFILE/lib/ruby/site_ruby:$DEVENV_PROFILE/lib/ruby/site_ruby/${libdir}:$DEVENV_PROFILE/lib/ruby/site_ruby/${libdir}/${pkgs.system}:$RUBYLIB"
-        export GEM_PATH="$GEM_HOME/gems:$GEM_PATH"
+        export RUBYLIB="$DEVENV_PROFILE/${libdir}:$DEVENV_PROFILE/lib/ruby/site_ruby:$DEVENV_PROFILE/lib/ruby/site_ruby/${libdir}:$DEVENV_PROFILE/lib/ruby/site_ruby/${libdir}/${pkgs.stdenv.system}:''${RUBYLIB:-}"
+        export GEM_PATH="$GEM_HOME/gems:''${GEM_PATH:-}"
         export PATH="$GEM_HOME/bin:$PATH"
       '';
   };

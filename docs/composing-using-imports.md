@@ -1,3 +1,5 @@
+# Composing using imports
+
 You can compose environments either locally or by referencing [inputs](inputs.md).
 
 Imagine you're building a typical web application, with separate frontend and backend components
@@ -6,7 +8,7 @@ that live in separate folders.
 ```yaml title="devenv.yaml"
 inputs:
   nixpkgs:
-    url: github:NixOS/nixpkgs/nixpkgs-unstable
+    url: github:cachix/devenv-nixpkgs/rolling
   devenv:
     url: github:cachix/devenv
 imports:

@@ -1,79 +1,117 @@
-{ pkgs, config, lib, inputs, ... }:
+{ pkgs, config, lib, ... }:
 
 let
-  inherit (lib.attrsets) attrValues genAttrs getAttrs;
-
   cfg = config.languages.rust;
-  tools = [ "rustc" "cargo" "rustfmt" "clippy" "rust-analyzer" ];
-  setup = ''
-    inputs:
-      fenix:
-        url: github:nix-community/fenix
-        inputs:
-          nixpkgs:
-            follows: nixpkgs
-  '';
+
+  fenix = config.lib.getInput {
+    name = "fenix";
+    url = "github:nix-community/fenix";
+    attribute = "languages.rust.version";
+    follows = [ "nixpkgs" ];
+  };
 in
 {
+  imports = [
+    (lib.mkRenamedOptionModule [ "languages" "rust" "version" ] [ "languages" "rust" "channel" ])
+    (lib.mkRenamedOptionModule [ "languages" "rust" "packages" ] [ "languages" "rust" "toolchain" ])
+  ];
+
   options.languages.rust = {
     enable = lib.mkEnableOption "tools for Rust development";
 
-    packages = lib.mkOption {
-      type = lib.types.submodule ({
-        options = {
-          rust-src = lib.mkOption {
-            type = lib.types.either lib.types.package lib.types.str;
-            default = pkgs.rustPlatform.rustLibSrc;
-            defaultText = lib.literalExpression "pkgs.rustPlatform.rustLibSrc";
-            description = "rust-src package";
-          };
-        }
-        // genAttrs tools (name: lib.mkOption {
-          type = lib.types.package;
-          default = pkgs.${name};
-          defaultText = lib.literalExpression "pkgs.${name}";
-          description = "${name} package";
-        });
-      });
-      defaultText = lib.literalExpression "pkgs";
-      default = { };
-      description = "Attribute set of packages including rustc and Cargo.";
+    components = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" ];
+      defaultText = lib.literalExpression ''[ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" ]'';
+      description = ''
+        List of [Rustup components](https://rust-lang.github.io/rustup/concepts/components.html)
+        to install. Defaults to those available in `nixpkgs`.
+      '';
     };
 
-    version = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "Set to stable, beta, or latest.";
+    channel = lib.mkOption {
+      type = lib.types.enum [ "nixpkgs" "stable" "beta" "nightly" ];
+      default = "nixpkgs";
+      defaultText = lib.literalExpression ''"nixpkgs"'';
+      description = "The rustup toolchain to install.";
+    };
+
+    toolchain = lib.mkOption {
+      type = lib.types.submodule ({
+        freeformType = lib.types.attrsOf lib.types.package;
+
+        options =
+          let
+            documented-components = [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" ];
+            mkComponentOption = component: lib.mkOption {
+              type = lib.types.nullOr lib.types.package;
+              default = pkgs.${component};
+              defaultText = lib.literalExpression "pkgs.${component}";
+              description = "${component} package";
+            };
+          in
+          lib.genAttrs documented-components mkComponentOption;
+      });
+      default = { };
+      defaultText = lib.literalExpression "nixpkgs";
+      description = "Rust component packages. May optionally define additional components, for example `miri`.";
     };
   };
 
   config = lib.mkMerge [
-    (lib.mkIf cfg.enable {
-      packages = attrValues (getAttrs tools cfg.packages) ++ lib.optional pkgs.stdenv.isDarwin pkgs.libiconv;
-
-      # enable compiler tooling by default to expose things like cc
-      languages.c.enable = lib.mkDefault true;
-
-      env.RUST_SRC_PATH = cfg.packages.rust-src;
-
-      pre-commit.tools.cargo = lib.mkForce cfg.packages.cargo;
-      pre-commit.tools.rustfmt = lib.mkForce cfg.packages.rustfmt;
-      pre-commit.tools.clippy = lib.mkForce cfg.packages.clippy;
-    })
-    (lib.mkIf (cfg.enable && pkgs.stdenv.isDarwin) {
-      env.RUSTFLAGS = [ "-L framework=${config.env.DEVENV_PROFILE}/Library/Frameworks" ];
-      env.RUSTDOCFLAGS = [ "-L framework=${config.env.DEVENV_PROFILE}/Library/Frameworks" ];
-      env.CFLAGS = [ "-iframework ${config.env.DEVENV_PROFILE}/Library/Frameworks" ];
-    })
-    (lib.mkIf (cfg.version != null) (
+    (lib.mkIf cfg.enable (
       let
-        fenix = inputs.fenix or (throw "To use languages.rust.version, you need to add the following to your devenv.yaml:\n\n${setup}");
-        rustPackages = fenix.packages.${pkgs.system}.${cfg.version} or (throw "languages.rust.version is set to ${cfg.version}, but should be one of: stable, beta or latest.");
+        mkOverrideTools = lib.mkOverride (lib.modules.defaultOverridePriority - 1);
       in
       {
-        languages.rust.packages =
-          { rust-src = lib.mkDefault "${rustPackages.rust-src}/lib/rustlib/src/rust/library"; }
-          // genAttrs tools (package: lib.mkDefault rustPackages.${package});
+        # Set $CARGO_INSTALL_ROOT so that executables installed by `cargo install` can be found from $PATH
+        enterShell = ''
+          export CARGO_INSTALL_ROOT=$(${
+            lib.strings.escapeShellArgs [
+              "${pkgs.coreutils}/bin/realpath"
+              "--no-symlinks"
+              "${config.devenv.state}/cargo-install"
+            ]
+          })
+          export PATH="$PATH:$CARGO_INSTALL_ROOT/bin"
+        '';
+
+        packages = (builtins.map (c: cfg.toolchain.${c} or (throw "toolchain.${c}")) cfg.components)
+          ++ lib.optional pkgs.stdenv.isDarwin pkgs.libiconv;
+
+        # enable compiler tooling by default to expose things like cc
+        languages.c.enable = lib.mkDefault true;
+
+        # RUST_SRC_PATH is necessary when rust-src is not at the same location as
+        # as rustc. This is the case with the rust toolchain from nixpkgs.
+        env.RUST_SRC_PATH =
+          if cfg.toolchain ? rust-src
+          then "${cfg.toolchain.rust-src}/lib/rustlib/src/rust/library"
+          else pkgs.rustPlatform.rustLibSrc;
+
+        pre-commit.tools.cargo = mkOverrideTools cfg.toolchain.cargo or null;
+        pre-commit.tools.rustfmt = mkOverrideTools cfg.toolchain.rustfmt or null;
+        pre-commit.tools.clippy = mkOverrideTools cfg.toolchain.clippy or null;
+      }
+    ))
+    (lib.mkIf (cfg.enable && pkgs.stdenv.isDarwin) {
+      env.RUSTFLAGS = "-L framework=${config.devenv.profile}/Library/Frameworks";
+      env.RUSTDOCFLAGS = "-L framework=${config.devenv.profile}/Library/Frameworks";
+      env.CFLAGS = "-iframework ${config.devenv.profile}/Library/Frameworks";
+    })
+    (lib.mkIf (cfg.channel != "nixpkgs") (
+      let
+        rustPackages = fenix.packages.${pkgs.stdenv.system};
+      in
+      {
+        languages.rust.toolchain =
+          let
+            toolchain =
+              if cfg.channel == "nightly"
+              then rustPackages.latest
+              else rustPackages.${cfg.channel};
+          in
+          (builtins.mapAttrs (_: pkgs.lib.mkDefault) toolchain);
       }
     ))
   ];

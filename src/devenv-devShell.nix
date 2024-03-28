@@ -2,6 +2,7 @@
 let
   lib = pkgs.lib;
   version = lib.fileContents ./modules/latest-version;
+  shellPrefix = shellName: if shellName == "default" then "" else "${shellName}-";
 in
 pkgs.writeScriptBin "devenv" ''
   #!/usr/bin/env bash
@@ -18,12 +19,12 @@ pkgs.writeScriptBin "devenv" ''
 
   case $command in
     up)
-      procfilescript=${config.procfileScript}
+      procfilescript=$(nix build '.#${shellPrefix (config._module.args.name or "default")}devenv-up' --no-link --print-out-paths --impure)
       if [ "$(cat $procfilescript|tail -n +2)" = "" ]; then
         echo "No 'processes' option defined: https://devenv.sh/processes/"
         exit 1
       else
-        $procfilescript
+        exec $procfilescript "$@"
       fi
       ;;
     version)
@@ -38,8 +39,8 @@ pkgs.writeScriptBin "devenv" ''
       echo
       echo "Commands:"
       echo
-      echo "up:             Starts processes in foreground. See http://devenv.sh/processes"
-      echo "version:        Display devenv version"
+      echo "up              Starts processes in foreground. See http://devenv.sh/processes"
+      echo "version         Display devenv version"
       echo
       exit 1
   esac
