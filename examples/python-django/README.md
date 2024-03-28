@@ -14,19 +14,6 @@ Specifically,  `devenv` uses `nix` to install system level packages like `postgr
 
 1. Install [`devenv.sh`](https://devenv.sh/getting-started)
 
-2.a. Launch the database & a development server via `devenv up`
-
-2.b. Automatically activate the environment in your shell via `direnv`
-
-  - Install [`direnv`](https://direnv.net/docs/installation.html),  `nixpkgs` has a guide [here](https://search.nixos.org/packages?query=direnv)
-  - [Add the `direnv` hook to your shell](https://direnv.net/docs/hook.html)
-  - Once installed, you'll see a warning in your shell the next time you enter the project directory ...
-    ```sh
-    direnv: error ~/myproject/.envrc is blocked. Run `direnv allow` to approve its content
-    ```
-
-3. Fill `SECRET_KEY` in `.env` file with your `SECRET_KEY`
-
 
 ---
 
