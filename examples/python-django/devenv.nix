@@ -35,43 +35,8 @@ in
   };
 
   scripts = {
-    start-processes-in-background.exec = ''
-      echo
-      psql --version
-
-      # Start Postgres if not running ...
-      if ! nc -z ${db_host} ${db_port};
-      then
-        echo "Starting Database in the background on ${db_host}:${db_port} ..."
-        nohup devenv up > /tmp/devenv.log 2>&1 &
-      fi
-    '';
-    wait-for-db.exec = ''
-      echo
-      echo "Waiting for database to start .."
-      echo "(if wait exceeds 100%, check /tmp/devenv.log for errors!)"
-      
-      timer=0;
-      n_steps=99;
-      while true;
-      do
-        if nc -z ${db_host} ${db_port}; then
-          printf "\nDatabase is running!\n\n"
-          exit 0
-        elif [ $timer -gt $n_steps ]; then
-          printf "\nDatabase failed to launch!\n\n"
-          exit 1
-        else
-          sleep 0.1
-          let timer++
-          printf "%-*s" $((timer+1)) '[' | tr ' ' '#'
-          printf "%*s%3d%%\r"  $((100-timer))  "]" "$timer"
-        fi
-      done
-    '';
-    run-tests.exec = ''
-      start-processes-in-background
-      wait-for-db || exit 1
+    enterTest.exec = ''
+      wait_for_port ${db_port}
       python manage.py collectstatic --noinput
       python manage.py test
     '';
